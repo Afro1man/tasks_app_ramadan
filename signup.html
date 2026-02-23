@@ -4,21 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inscription - Task Ramadan</title>
-    <link rel="stylesheet" href="style1.css"> </head>
+    <link rel="stylesheet" href="style1.css"> 
+</head>
 <body>
-    <div class="login-container">
-        <h2>Créer un compte</h2>
+    <div class="auth-container">
         <form id="signup-form">
-            <input type="email" id="signup-email" placeholder="" required>
-            <input type="password" id="signup-password" placeholder="" required>
-            <button type="submit">S'inscrire</button>
+            <h2>Créer un compte</h2>
+            <p>Rejoins-nous pour gérer tes tâches.</p>
+            
+            <div class="input-group">
+                <label for="signup-email">Email</label>
+                <input type="email" id="signup-email" placeholder="Ton email" required>
+            </div>
+
+            <div class="input-group">
+                <label for="signup-password">Mot de passe</label>
+                <input type="password" id="signup-password" placeholder="Choisis un mot de passe" required>
+            </div>
+
+            <button type="submit" class="btn-primary">S'inscrire</button>
+            <p class="switch-auth">Déjà un compte ? <a href="index.html">Se connecter</a></p>
         </form>
-        <p>Déjà un compte ? <a href="index.html">Se connecter</a></p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // Utilise tes propres clés ici
         const SUPABASE_URL = 'https://iknjbvzjmsjpygaydaxd.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_chD1haXweyg1UwDwtSgOSw_XcXuyFZy';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -38,11 +48,10 @@
             if (error) {
                 alert("Erreur : " + error.message);
             } else {
-                alert("Inscription réussie ! Vérifie tes emails pour confirmer.");
+                alert("Inscription réussie ! Tu peux maintenant te connecter.");
                 window.location.href = 'index.html';
             }
         });
     </script>
 </body>
-
 </html>
