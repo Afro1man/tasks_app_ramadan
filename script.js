@@ -1,50 +1,68 @@
 // 1. Configuration
 const SUPABASE_URL = 'https://iknjbvzjmsjpygaydaxd.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_chD1haXweyg1UwDwtSgOSw_XcXuyFZy'; // Assure-toi que c'est bien la clé "anon public"
+const SUPABASE_KEY = 'sb_publishable_chD1haXweyg1UwDwtSgOSw_XcXuyFZy'; 
 
-// On initialise le client immédiatement
+// Initialisation du client
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// 2. Sélection des éléments HTML
+// 2. Sélection des éléments HTML (avec vérification pour éviter les erreurs)
 const taskInput = document.getElementById('task-input');
 const addTaskBtn = document.getElementById('add-task-btn');
 const taskList = document.getElementById('task-list');
+const logoutBtn = document.getElementById('logout-btn');
 
 // --- FONCTIONS AUTHENTIFICATION ---
 
+// Inscription classique
 async function signUp(email, password) {
     const { data, error } = await supabaseClient.auth.signUp({ email, password });
     if (error) alert("Erreur : " + error.message);
-    else alert("Vérifie tes emails !");
+    else alert("Inscription réussie !");
 }
 
+// Connexion classique
 async function signIn(email, password) {
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (error) alert("Erreur : " + error.message);
     else window.location.href = 'dashboard.html';
 }
 
-async function signOut() {
-    await supabaseClient.auth.signOut();
-    window.location.href = 'index.html';
-}
-const logoutBtn = document.getElementById('logout-btn');
+// --- NOUVEAU : AUTHENTIFICATION SOCIALE ---
 
+async function signInWithGoogle() {
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + '/dashboard.html' }
+    });
+    if (error) alert("Erreur Google : " + error.message);
+}
+
+async function signInWithFacebook() {
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: 'facebook',
+        options: { redirectTo: window.location.origin + '/dashboard.html' }
+    });
+    if (error) alert("Erreur Facebook : " + error.message);
+}
+
+// Déconnexion
 if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
         await supabaseClient.auth.signOut();
         window.location.href = 'index.html';
     });
 }
+
 // --- GESTION DES TÂCHES ---
 
 async function fetchTasks() {
-    // Utilisation du bon client
+    // Si on n'est pas sur le dashboard (taskList n'existe pas), on s'arrête
+    if (!taskList) return;
+
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
     if (userError || !user) {
-        console.log("Utilisateur non connecté ou session expirée");
-        // window.location.href = 'index.html'; // Optionnel pour tes tests
+        console.log("Utilisateur non connecté");
         return;
     }
 
@@ -62,6 +80,7 @@ async function fetchTasks() {
 }
 
 function displayTask(task) {
+    if (!taskList) return;
     const li = document.createElement('li');
     li.classList.add('task-item');
     li.innerHTML = `
@@ -99,7 +118,7 @@ async function deleteTask(id, button) {
 
 async function toggleTask(id, isCompleted) {
     await supabaseClient.from('tasks').update({ is_completed: isCompleted }).eq('id', id);
-    fetchTasks(); // Rafraîchir pour appliquer le style barré
+    fetchTasks(); 
 }
 
 async function editTask(id, oldTitle) {
@@ -120,5 +139,7 @@ if (addTaskBtn) {
     addTaskBtn.addEventListener('click', addTask);
 }
 
-// Lancement automatique
-fetchTasks();
+// Lancement automatique si on est sur la page des tâches
+if (taskList) {
+    fetchTasks();
+}
