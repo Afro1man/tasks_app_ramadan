@@ -30,23 +30,13 @@ async function loadUserProfile() {
 
 // --- AUTHENTIFICATION ---
 async function signInWithGoogle() {
-    await supabaseClient.auth.signInWithOAuth({ 
-        provider: 'google', 
-        options: { 
-            // window.location.origin récupère l'adresse actuelle (ex: http://127.0.0.1:5500)
-            redirectTo: window.location.origin + '/dashboard.html' 
-        } 
-    });
+    await supabaseClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/dashboard.html' } });
 }
 
 async function signInWithFacebook() {
-    await supabaseClient.auth.signInWithOAuth({ 
-        provider: 'facebook', 
-        options: { 
-            redirectTo: window.location.origin + '/dashboard.html' 
-        } 
-    });
+    await supabaseClient.auth.signInWithOAuth({ provider: 'facebook', options: { redirectTo: window.location.origin + '/dashboard.html' } });
 }
+
 if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
         await supabaseClient.auth.signOut();
@@ -250,4 +240,3 @@ themeToggle.addEventListener('click', () => {
         themeToggle.textContent = '☀️';
     }
 });
-
