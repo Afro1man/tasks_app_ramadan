@@ -5,21 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon Dashboard - TaskApp</title>
     <link rel="stylesheet" href="style1.css">
-    <style>
-        /* Styles pour le profil dans la navbar */
-        .user-block { display: flex; align-items: center; gap: 12px; }
-        #user-avatar { width: 35px; height: 35px; border-radius: 50%; border: 2px solid #4CAF50; object-fit: cover; }
-        #user-name { color: white; font-size: 0.9em; font-weight: bold; }
-        .navbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #333; }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <nav class="navbar">
         <h2>TaskApp 🚀</h2>
         <div class="user-block">
-            <img id="user-avatar" src="" alt="" style="display: none;">
+            <img id="user-avatar" src="" alt="Profil" style="display: none;">
             <span id="user-name">Chargement...</span>
-            <button id="logout-btn">Déconnexion</button>
+            <button id="logout-btn" class="btn-logout">Déconnexion</button>
         </div>
     </nav>
 
@@ -28,6 +22,12 @@
             <input type="text" id="task-input" placeholder="Quelle est la prochaine étape ?">
             <button id="add-task-btn">Ajouter</button>
         </section>
+
+        <div id="bulk-actions" style="display: none; margin-bottom: 1.5rem; text-align: right;">
+            <button id="delete-selected-btn" class="btn-danger-outline">
+                🗑️ Supprimer la sélection (<span id="selected-count">0</span>)
+            </button>
+        </div>
 
         <section class="task-list-container">
             <ul id="task-list">
