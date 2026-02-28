@@ -51,21 +51,18 @@ async function fetchTasks() {
     const { data, error } = await supabaseClient
         .from('tasks')
         .select('*')
-        .order('created_at', { ascending: true }); // Ascending pour garder l'ordre logique
+        .order('created_at', { ascending: true });
 
     if (error) {
         console.error("Erreur:", error.message);
     } else {
         taskList.innerHTML = ''; 
         
-        // On filtre les tâches principales (celles qui n'ont pas de parent)
         const parents = data.filter(t => !t.parent_id);
         const children = data.filter(t => t.parent_id);
 
         parents.forEach(parent => {
-            displayTask(parent); // Affiche la tâche principale
-            
-            // Affiche ses enfants juste en dessous
+            displayTask(parent);
             const subtasks = children.filter(child => child.parent_id === parent.id);
             subtasks.forEach(sub => displayTask(sub, true));
         });
@@ -75,22 +72,21 @@ async function fetchTasks() {
 function displayTask(task, isSubTask = false) {
     if (!taskList) return;
     const li = document.createElement('li');
-    li.classList.add('task-item');
     
-    // Style visuel pour différencier les sous-tâches
+    // Ajout des classes dynamiques pour le CSS
+    li.className = `task-item ${task.is_completed ? 'completed' : ''}`;
+    
     if (isSubTask) {
         li.style.marginLeft = "40px";
-        li.style.borderLeft = "2px solid #4CAF50";
-        li.style.backgroundColor = "#f9f9f9";
     }
 
     li.innerHTML = `
         <input type="checkbox" ${task.is_completed ? 'checked' : ''} onchange="toggleTask(${task.id}, this.checked)">
-        <span style="${task.is_completed ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${task.title}</span>
+        <span>${task.title}</span>
         <div class="actions">
-            ${!isSubTask ? `<button onclick="addSubTask(${task.id})" style="background:none; border:none; cursor:pointer;">➕</button>` : ''}
-            <button class="edit-btn" onclick="editTask(${task.id}, '${task.title.replace(/'/g, "\\'")}')">✏️</button>
-            <button class="delete-btn" onclick="deleteTask(${task.id}, this)">🗑️</button>
+            ${!isSubTask ? `<button title="Ajouter une sous-tâche" onclick="addSubTask(${task.id})">➕</button>` : ''}
+            <button title="Modifier" class="edit-btn" onclick="editTask(${task.id}, '${task.title.replace(/'/g, "\\'")}')">✏️</button>
+            <button title="Supprimer" class="delete-btn" onclick="deleteTask(${task.id})">🗑️</button>
         </div>
     `;
     taskList.appendChild(li);
@@ -99,19 +95,24 @@ function displayTask(task, isSubTask = false) {
 async function addTask(event) {
     if (event) event.preventDefault(); 
     const title = taskInput.value.trim();
-    if (!title) return;
+
+    // Feedback d'erreur si vide (Vibration)
+    if (!title) {
+        taskInput.classList.add('error-shake');
+        setTimeout(() => taskInput.classList.remove('error-shake'), 400);
+        return;
+    }
 
     const { data: { user } } = await supabaseClient.auth.getUser();
 
     const { error } = await supabaseClient
         .from('tasks')
-        .insert([{ title: title, is_completed: false, user_id: user.id }])
-        .select();
+        .insert([{ title: title, is_completed: false, user_id: user.id }]);
 
     if (error) alert("Erreur : " + error.message);
     else {
         taskInput.value = '';
-        fetchTasks(); // On recharge pour bien placer la tâche
+        fetchTasks();
     }
 }
 
@@ -124,7 +125,7 @@ async function addSubTask(parentId) {
     const { error } = await supabaseClient
         .from('tasks')
         .insert([{ 
-            title: title, 
+            title: title.trim(), 
             is_completed: false, 
             user_id: user.id, 
             parent_id: parentId 
@@ -134,26 +135,44 @@ async function addSubTask(parentId) {
     else fetchTasks();
 }
 
-async function deleteTask(id, button) {
+async function deleteTask(id) {
+    if (!confirm("Voulez-vous vraiment supprimer cette tâche ?")) return;
+    
     const { error } = await supabaseClient.from('tasks').delete().eq('id', id);
-    if (!error) fetchTasks(); // On recharge au cas où c'était un parent (pour supprimer les enfants visuellement)
+    if (error) alert(error.message);
+    else fetchTasks();
 }
 
 async function toggleTask(id, isCompleted) {
-    await supabaseClient.from('tasks').update({ is_completed: isCompleted }).eq('id', id);
-    fetchTasks(); 
+    const { error } = await supabaseClient
+        .from('tasks')
+        .update({ is_completed: isCompleted })
+        .eq('id', id);
+    
+    if (!error) fetchTasks(); 
 }
 
 async function editTask(id, oldTitle) {
-    const newTitle = prompt("Modifier :", oldTitle);
-    if (newTitle && newTitle.trim() !== "") {
-        await supabaseClient.from('tasks').update({ title: newTitle.trim() }).eq('id', id);
-        fetchTasks();
+    const newTitle = prompt("Modifier la tâche :", oldTitle);
+    if (newTitle && newTitle.trim() !== "" && newTitle.trim() !== oldTitle) {
+        const { error } = await supabaseClient
+            .from('tasks')
+            .update({ title: newTitle.trim() })
+            .eq('id', id);
+        
+        if (!error) fetchTasks();
     }
 }
 
 // --- ÉCOUTEURS ---
-if (addTaskBtn) addTaskBtn.addEventListener('click', addTask);
+if (addTaskBtn) {
+    addTaskBtn.addEventListener('click', addTask);
+}
+
+// Touche "Entrée" pour ajouter une tâche
+taskInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') addTask();
+});
 
 loadUserProfile();
 if (taskList) fetchTasks();
