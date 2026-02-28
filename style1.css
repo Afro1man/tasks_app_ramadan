@@ -214,7 +214,8 @@ input:focus {
 
 .btn-danger-outline:hover {
     background: var(--danger);
-    color: white;
+    color: white
+    background-color: rgba(239, 68, 68, 0.1); /* Un fond rouge très léger au survol */
 }
 
 /* --- TASK ITEMS & ANIMATIONS --- */
@@ -235,6 +236,9 @@ input:focus {
 @keyframes slideIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
+}
+.task-item span {
+    margin-left: 10px; /* Donne un peu d'air au texte */
 }
 
 .task-item:hover {
@@ -299,4 +303,5 @@ li[style*="margin-left"] {
     transform: scale(1.1);
     border-color: var(--primary);
 }
+
 
