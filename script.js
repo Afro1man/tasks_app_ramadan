@@ -2,35 +2,24 @@
 const SUPABASE_URL = 'https://iknjbvzjmsjpygaydaxd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_chD1haXweyg1UwDwtSgOSw_XcXuyFZy'; 
 
-// Initialisation du client
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// 2. Sélection des éléments HTML
 const taskInput = document.getElementById('task-input');
 const addTaskBtn = document.getElementById('add-task-btn');
 const taskList = document.getElementById('task-list');
 const logoutBtn = document.getElementById('logout-btn');
 
-// --- NOUVEAU : CHARGEMENT DU PROFIL (NOM + PHOTO) ---
-
+// --- PROFIL ---
 async function loadUserProfile() {
     const { data: { user }, error } = await supabaseClient.auth.getUser();
-
-    // Si on est sur le dashboard et qu'il n'y a pas d'utilisateur, on redirige
     if (taskList && (error || !user)) {
         window.location.href = 'index.html';
         return;
     }
-
     if (user) {
-        // Récupération des éléments HTML créés dans le dashboard.html
         const nameElement = document.getElementById('user-name');
         const avatarElement = document.getElementById('user-avatar');
-
-        if (nameElement) {
-            nameElement.innerText = user.user_metadata.full_name || "Utilisateur";
-        }
-
+        if (nameElement) nameElement.innerText = user.user_metadata.full_name || user.email.split('@')[0];
         if (avatarElement && user.user_metadata.avatar_url) {
             avatarElement.src = user.user_metadata.avatar_url;
             avatarElement.style.display = "block";
@@ -38,34 +27,13 @@ async function loadUserProfile() {
     }
 }
 
-// --- FONCTIONS AUTHENTIFICATION ---
-
-async function signUp(email, password) {
-    const { data, error } = await supabaseClient.auth.signUp({ email, password });
-    if (error) alert("Erreur : " + error.message);
-    else alert("Inscription réussie !");
-}
-
-async function signIn(email, password) {
-    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    if (error) alert("Erreur : " + error.message);
-    else window.location.href = 'dashboard.html';
-}
-
+// --- AUTHENTIFICATION ---
 async function signInWithGoogle() {
-    const { error } = await supabaseClient.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: window.location.origin + '/dashboard.html' }
-    });
-    if (error) alert("Erreur Google : " + error.message);
+    await supabaseClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/dashboard.html' } });
 }
 
 async function signInWithFacebook() {
-    const { error } = await supabaseClient.auth.signInWithOAuth({
-        provider: 'facebook',
-        options: { redirectTo: window.location.origin + '/dashboard.html' }
-    });
-    if (error) alert("Erreur Facebook : " + error.message);
+    await supabaseClient.auth.signInWithOAuth({ provider: 'facebook', options: { redirectTo: window.location.origin + '/dashboard.html' } });
 }
 
 if (logoutBtn) {
@@ -75,7 +43,7 @@ if (logoutBtn) {
     });
 }
 
-// --- GESTION DES TÂCHES ---
+// --- GESTION DES TÂCHES & SOUS-TÂCHES ---
 
 async function fetchTasks() {
     if (!taskList) return;
@@ -83,24 +51,44 @@ async function fetchTasks() {
     const { data, error } = await supabaseClient
         .from('tasks')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true }); // Ascending pour garder l'ordre logique
 
     if (error) {
-        console.error("Erreur de récupération:", error.message);
+        console.error("Erreur:", error.message);
     } else {
         taskList.innerHTML = ''; 
-        data.forEach(task => displayTask(task));
+        
+        // On filtre les tâches principales (celles qui n'ont pas de parent)
+        const parents = data.filter(t => !t.parent_id);
+        const children = data.filter(t => t.parent_id);
+
+        parents.forEach(parent => {
+            displayTask(parent); // Affiche la tâche principale
+            
+            // Affiche ses enfants juste en dessous
+            const subtasks = children.filter(child => child.parent_id === parent.id);
+            subtasks.forEach(sub => displayTask(sub, true));
+        });
     }
 }
 
-function displayTask(task) {
+function displayTask(task, isSubTask = false) {
     if (!taskList) return;
     const li = document.createElement('li');
     li.classList.add('task-item');
+    
+    // Style visuel pour différencier les sous-tâches
+    if (isSubTask) {
+        li.style.marginLeft = "40px";
+        li.style.borderLeft = "2px solid #4CAF50";
+        li.style.backgroundColor = "#f9f9f9";
+    }
+
     li.innerHTML = `
         <input type="checkbox" ${task.is_completed ? 'checked' : ''} onchange="toggleTask(${task.id}, this.checked)">
         <span style="${task.is_completed ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${task.title}</span>
         <div class="actions">
+            ${!isSubTask ? `<button onclick="addSubTask(${task.id})" style="background:none; border:none; cursor:pointer;">➕</button>` : ''}
             <button class="edit-btn" onclick="editTask(${task.id}, '${task.title.replace(/'/g, "\\'")}')">✏️</button>
             <button class="delete-btn" onclick="deleteTask(${task.id}, this)">🗑️</button>
         </div>
@@ -113,24 +101,42 @@ async function addTask(event) {
     const title = taskInput.value.trim();
     if (!title) return;
 
-    // Récupérer l'id de l'utilisateur pour lier la tâche
     const { data: { user } } = await supabaseClient.auth.getUser();
 
-    const { data, error } = await supabaseClient
+    const { error } = await supabaseClient
         .from('tasks')
         .insert([{ title: title, is_completed: false, user_id: user.id }])
         .select();
 
-    if (error) alert("Erreur d'ajout : " + error.message);
+    if (error) alert("Erreur : " + error.message);
     else {
-        displayTask(data[0]);
         taskInput.value = '';
+        fetchTasks(); // On recharge pour bien placer la tâche
     }
+}
+
+async function addSubTask(parentId) {
+    const title = prompt("Nom de la sous-tâche :");
+    if (!title) return;
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+
+    const { error } = await supabaseClient
+        .from('tasks')
+        .insert([{ 
+            title: title, 
+            is_completed: false, 
+            user_id: user.id, 
+            parent_id: parentId 
+        }]);
+
+    if (error) alert("Erreur : " + error.message);
+    else fetchTasks();
 }
 
 async function deleteTask(id, button) {
     const { error } = await supabaseClient.from('tasks').delete().eq('id', id);
-    if (!error) button.closest('li').remove();
+    if (!error) fetchTasks(); // On recharge au cas où c'était un parent (pour supprimer les enfants visuellement)
 }
 
 async function toggleTask(id, isCompleted) {
@@ -139,27 +145,15 @@ async function toggleTask(id, isCompleted) {
 }
 
 async function editTask(id, oldTitle) {
-    const newTitle = prompt("Modifier la tâche :", oldTitle);
-    if (newTitle && newTitle.trim() !== "" && newTitle !== oldTitle) {
-        const { error } = await supabaseClient
-            .from('tasks')
-            .update({ title: newTitle.trim() })
-            .eq('id', id);
-        
-        if (error) alert("Erreur : " + error.message);
-        else fetchTasks();
+    const newTitle = prompt("Modifier :", oldTitle);
+    if (newTitle && newTitle.trim() !== "") {
+        await supabaseClient.from('tasks').update({ title: newTitle.trim() }).eq('id', id);
+        fetchTasks();
     }
 }
 
-// --- ÉCOUTEURS ET LANCEMENT ---
+// --- ÉCOUTEURS ---
+if (addTaskBtn) addTaskBtn.addEventListener('click', addTask);
 
-if (addTaskBtn) {
-    addTaskBtn.addEventListener('click', addTask);
-}
-
-// Lancement automatique au chargement
-loadUserProfile(); // Charge le nom et la photo
-
-if (taskList) {
-    fetchTasks(); // Charge les tâches
-}
+loadUserProfile();
+if (taskList) fetchTasks();
